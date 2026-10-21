@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AskQL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: two-panel workbench — schema on the left, question → SQL on the right; stacks on phones */
+:root{
+  --bg:#f3f5f8; --panel:#ffffff; --ink:#18202e; --muted:#5b6578; --line:#d9dee8;
+  --accent:#2f5bd3; --mark:#ffd84d; --code-bg:#121826; --code-fg:#e4e9f4;
+  --kw:#8fb4ff; --str:#ffd27a; --num:#ff9e8a; --cmt:#7d879b; --fn:#9be3c4;
+  --ok:#1f8a5b; --warn:#b4570f;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1119; --panel:#151b27; --ink:#e7ebf3; --muted:#98a2b6; --line:#273043;
+  --accent:#7fa2ff; --mark:#e6c23a; --code-bg:#0a0e16; --code-fg:#e4e9f4;
+  --ok:#4fc28c; --warn:#f0a35e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1119; --panel:#151b27; --ink:#e7ebf3; --muted:#98a2b6; --line:#273043;
+  --accent:#7fa2ff; --mark:#e6c23a; --code-bg:#0a0e16; --code-fg:#e4e9f4;
+  --ok:#4fc28c; --warn:#f0a35e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font:700 clamp(30px,5vw,44px)/1 var(--display);margin:0;letter-spacing:-.02em}
+h1 span{background:linear-gradient(transparent 58%,var(--mark) 58%);padding:0 .08em}
+.tag{color:var(--muted);margin:6px 0 0;max-width:52ch}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.label{font:600 11px/1 var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+select,textarea,input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+select{padding:6px 10px}
+textarea{width:100%;resize:vertical;padding:12px}
+#schema{font:13px/1.6 var(--mono);min-height:300px;tab-size:2}
+#question{min-height:96px;font-size:16px}
+textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 11px;font:13px var(--body);cursor:pointer}
+.chip:hover{color:var(--ink);border-color:var(--accent)}
+.btn{font:600 15px var(--body);border-radius:8px;padding:10px 18px;cursor:pointer;border:1px solid transparent}
+.primary{background:var(--accent);color:#fff}
+:root[data-theme="dark"] .primary{color:#0d1119}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .primary{color:#0d1119}}
+.primary:disabled{opacity:.55;cursor:progress}
+.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.result{display:flex;flex-direction:column;gap:12px}
+.codebox{background:var(--code-bg);color:var(--code-fg);border-radius:10px;overflow:hidden}
+.codebar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #ffffff14;font:12px var(--mono);color:var(--cmt)}
+.codebar button{font:600 12px var(--body);background:#ffffff14;color:var(--code-fg);border:0;border-radius:6px;padding:5px 10px;cursor:pointer}
+pre{margin:0;padding:16px;overflow-x:auto;font:13.5px/1.65 var(--mono);white-space:pre;min-height:64px}
+.k{color:var(--kw);font-weight:600}.s{color:var(--str)}.n{color:var(--num)}.c{color:var(--cmt);font-style:italic}.f{color:var(--fn)}
+.explain{margin:0;max-width:65ch}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+ul.assume{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.status{font-size:13px;color:var(--muted);min-height:1.2em;margin:0}
+.status.err{color:var(--warn)}
+.example{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--mark);padding:3px 7px;border-radius:4px;color:#18202e}
+.history{display:flex;flex-direction:column;gap:4px}
+.history button{text-align:left;background:transparent;border:0;border-top:1px solid var(--line);padding:9px 2px;color:var(--ink);font:14px var(--body);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history button:hover{color:var(--accent)}
+.warnbox{border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:14px}
+@media (prefers-reduced-motion:no-preference){.result{transition:opacity .2s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Ask<span>QL</span></h1>
+      <p class="tag">Ask your database a question in plain English. Paste your tables on the left and get a ready-to-run SQL query with a plain explanation.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="schemaLbl">
+      <div class="row">
+        <span class="label" id="schemaLbl">1 · Your tables</span>
+        <select id="dialect" aria-label="SQL dialect">
+          <option>PostgreSQL</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option><option>BigQuery</option><option>Snowflake</option>
+        </select>
+      </div>
+      <textarea id="schema" spellcheck="false" aria-label="Table definitions"></textarea>
+      <p class="hint">Paste CREATE TABLE statements or just list them like <code>orders(id, customer_id, total, created_at)</code>. The sample is a small online store.</p>
+      <button class="btn ghost" id="resetSchema" type="button">Load sample store schema</button>
+    </section>
+
+    <section class="panel" aria-labelledby="askLbl">
+      <span class="label" id="askLbl">2 · Ask in plain English</span>
+      <textarea id="question" aria-label="Your question"></textarea>
+      <div class="chips" id="chips"></div>
+      <div id="keyRow" class="row" hidden>
+        <input id="apikey" type="password" placeholder="Anthropic API key (sk-ant-…)" autocomplete="off" style="flex:1;min-width:0;padding:9px 12px" aria-label="Anthropic API key">
+        <p class="hint" style="flex-basis:100%">Running outside Claude: your key stays in this browser and is sent only to api.anthropic.com.</p>
+      </div>
+      <div class="row">
+        <p class="status" id="status" role="status"></p>
+        <div style="display:flex;gap:8px">
+          <button class="btn ghost" id="stop" type="button" hidden>Stop</button>
+          <button class="btn primary" id="go" type="button">Write SQL</button>
+        </div>
+      </div>
+
+      <div class="result" id="result">
+        <div class="row"><span class="label">3 · Your query</span><span class="example" id="exTag">Example</span></div>
+        <div class="codebox">
+          <div class="codebar"><span id="dialectTag">postgresql</span><button id="copy" type="button">Copy</button></div>
+          <pre id="sql" tabindex="0"></pre>
+        </div>
+        <div id="warn" class="warnbox" hidden></div>
+        <p class="explain" id="explain"></p>
+        <div class="meta" id="tables"></div>
+        <ul class="assume" id="assume"></ul>
+      </div>
+
+      <div id="histWrap" hidden>
+        <span class="label">Recent questions</span>
+        <div class="history" id="history"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const SAMPLE_SCHEMA = `CREATE TABLE customers (
+  id SERIAL PRIMARY KEY,
+  name TEXT,
+  email TEXT,
+  city TEXT,
+  signup_date DATE
+);
+
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  name TEXT,
+  category TEXT,
+  price NUMERIC(10,2)
+);
+
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  customer_id INT REFERENCES customers(id),
+  status TEXT,          -- 'paid', 'shipped', 'cancelled'
+  created_at TIMESTAMP
+);
+
+CREATE TABLE order_items (
+  order_id INT REFERENCES orders(id),
+  product_id INT REFERENCES products(id),
+  quantity INT,
+  unit_price NUMERIC(10,2)
+);`;
+
+const EXAMPLES = [
+  "Top 5 customers by total spending this year",
+  "Which products have never been ordered?",
+  "Monthly revenue for the last 6 months",
+  "How many orders were cancelled in each city?"
+];
+
+const EXAMPLE_RESULT = {
+  question: "Top 5 customers by total spending this year",
+  dialect: "PostgreSQL",
+  sql: `-- Top 5 customers by money spent in the current year
+SELECT
+  c.name,
+  c.email,
+  SUM(oi.quantity * oi.unit_price) AS total_spent
+FROM customers c
+JOIN orders o       ON o.customer_id = c.id
+JOIN order_items oi ON oi.order_id = o.id
+WHERE o.status <> 'cancelled'
+  AND o.created_at >= DATE_TRUNC('year', CURRENT_DATE)
+GROUP BY c.id, c.name, c.email
+ORDER BY total_spent DESC
+LIMIT 5;`,
+  explanation: "Adds up every item each customer bought this year (quantity × price paid), skips cancelled orders, then keeps the five customers with the highest totals.",
+  tables_used: ["customers","orders","order_items"],
+  assumptions: ["“Spending” means quantity × unit_price from order_items, the price actually paid.","Cancelled orders don’t count toward spending."],
+  warning: ""
+};
+
+const $ = id => document.getElementById(id);
+const S = {get(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+
+$("schema").value = S.get("askql.schema") || SAMPLE_SCHEMA;
+$("dialect").value = S.get("askql.dialect") || "PostgreSQL";
+$("question").value = EXAMPLE_RESULT.question;
+$("schema").addEventListener("input", () => S.set("askql.schema", $("schema").value));
+$("dialect").addEventListener("change", () => S.set("askql.dialect", $("dialect").value));
+$("resetSchema").onclick = () => { $("schema").value = SAMPLE_SCHEMA; S.set("askql.schema", SAMPLE_SCHEMA); };
+
+EXAMPLES.forEach(q => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.type = "button"; b.textContent = q;
+  b.onclick = () => { $("question").value = q; $("question").focus(); };
+  $("chips").append(b);
+});
+
+const KW = new Set("select from where join inner left right full outer cross on and or not in is null as group by order having limit offset distinct union all insert into values update set delete create table with case when then else end asc desc between like ilike exists top fetch first rows only over partition interval cast true false".split(" "));
+const FN = new Set("count sum avg min max coalesce date_trunc extract now current_date current_timestamp round lower upper length substring date strftime datediff dateadd row_number rank dense_rank lag lead nullif to_char format_timestamp timestamp_trunc date_sub getdate year month".split(" "));
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function highlight(sql){
+  const re = /(--[^\n]*)|('(?:[^']|'')*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)|([\s\S])/g;
+  let out = "", m;
+  while ((m = re.exec(sql))) {
+    if (m[1]) out += `<span class="c">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="s">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="n">${m[3]}</span>`;
+    else if (m[4]) { const w = m[4].toLowerCase();
+      out += KW.has(w) ? `<span class="k">${esc(m[4])}</span>` : FN.has(w) ? `<span class="f">${esc(m[4])}</span>` : esc(m[4]); }
+    else out += esc(m[5]);
+  }
+  return out;
+}
+
+function render(r, isExample){
+  $("exTag").hidden = !isExample;
+  $("dialectTag").textContent = (r.dialect || $("dialect").value).toLowerCase();
+  $("sql").innerHTML = highlight(r.sql || "");
+  $("explain").textContent = r.explanation || "";
+  $("tables").replaceChildren(...(r.tables_used||[]).map(t => { const s=document.createElement("span"); s.className="pill"; s.textContent=t; return s; }));
+  $("assume").replaceChildren(...(r.assumptions||[]).map(a => { const li=document.createElement("li"); li.textContent=a; return li; }));
+  $("warn").hidden = !r.warning; $("warn").textContent = r.warning || "";
+}
+render(EXAMPLE_RESULT, true);
+
+function renderHistory(){
+  const h = S.get("askql.history") || [];
+  $("histWrap").hidden = !h.length;
+  $("history").replaceChildren(...h.map(item => {
+    const b = document.createElement("button"); b.type="button"; b.textContent = item.question; b.title = item.question;
+    b.onclick = () => { $("question").value = item.question; render(item, false); };
+    return b;
+  }));
+}
+renderHistory();
+
+$("copy").onclick = async () => {
+  const text = $("sql").textContent;
+  try { await navigator.clipboard.writeText(text); $("copy").textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("sql")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("copy").textContent = "Selected — press Ctrl+C"; }
+  setTimeout(() => $("copy").textContent = "Copy", 1600);
+};
+
+const ERR = {
+  not_granted: "AskQL needs permission to use Claude. Reload the page and choose Allow to try again.",
+  sampling_disabled: "Claude isn't available on this account, so AskQL can't write queries here.",
+  rate_limited: "Too many requests right now. Wait a minute, then press Write SQL again.",
+  session_expired: "Your session expired. Sign in to Claude again, then retry.",
+  refused: "That question couldn't be answered. Try rephrasing it.",
+  invalid_json: "The answer came back garbled. Press Write SQL to try again.",
+  prompt_too_large: "Your table list is too long. Paste only the tables this question needs."
+};
+
+let samplePromise = window.claude?.use ? claude.use("sample") : Promise.resolve(null);
+let ctl;
+$("stop").onclick = () => ctl?.abort();
+
+$("go").onclick = async () => {
+  const q = $("question").value.trim(), schema = $("schema").value.trim(), dialect = $("dialect").value;
+  if (!q) { setStatus("Type a question first.", true); $("question").focus(); return; }
+  if (!schema) { setStatus("Add your tables on the left so the query uses real column names.", true); return; }
+  const sample = await samplePromise;
+  const key = $("apikey").value.trim();
+  if (!sample && !key) { $("keyRow").hidden = false; setStatus("Add your Anthropic API key to write queries outside Claude.", true); $("apikey").focus(); return; }
+
+  ctl = new AbortController();
+  $("go").disabled = true; $("stop").hidden = false;
+  setStatus("Writing your query…");
+  const prompt = `You convert plain-English questions into a single correct ${dialect} SQL query for people who don't know SQL.
+
+DATABASE SCHEMA:
+${schema.slice(0, 40000)}
+
+QUESTION: ${q}
+
+Rules:
+- Use only tables and columns that exist in the schema. Never invent columns.
+- Write a read-only SELECT (or WITH ... SELECT) query unless the question explicitly asks to change data; if it does, still write it but explain the risk in "warning".
+- Use ${dialect} syntax and functions. Format the SQL across multiple lines with 2-space indentation and a short leading -- comment.
+- If the question is ambiguous, pick the most sensible interpretation and list it in assumptions.
+- If it can't be answered from the schema, set sql to a comment explaining what's missing.
+
+Reply with only a JSON object:
+{"sql": string, "explanation": string (1-2 plain sentences, no jargon), "tables_used": string[], "assumptions": string[] (0-3 short items), "warning": string (empty unless the query modifies data or is likely slow)}`;
+
+  try {
+    const r = sample ? await sample.json(prompt, { signal: ctl.signal, cache: false }) : await callApi(prompt, key, ctl.signal);
+    if (!r || typeof r.sql !== "string") throw { code: "invalid_json" };
+    const item = { question: q, dialect, sql: r.sql, explanation: String(r.explanation||""),
+      tables_used: Array.isArray(r.tables_used) ? r.tables_used.map(String) : [],
+      assumptions: Array.isArray(r.assumptions) ? r.assumptions.map(String) : [],
+      warning: String(r.warning||"") };
+    render(item, false);
+    const h = (S.get("askql.history") || []).filter(x => x.question !== q);
+    h.unshift(item); S.set("askql.history", h.slice(0, 8)); renderHistory();
+    setStatus("Done. Review it, then run it in your database tool.");
+  } catch (e) {
+    if (e?.code === "cancelled") setStatus("Stopped.");
+    else setStatus(ERR[e?.code] || "Something went wrong reaching Claude. Press Write SQL to try again.", true);
+  } finally {
+    $("go").disabled = false; $("stop").hidden = true;
+  }
+};
+$("question").addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("go").click(); });
+// Fallback for hosting outside Claude: call the Anthropic API directly with the viewer's own key.
+$("apikey").value = S.get("askql.key") || "";
+$("apikey").addEventListener("change", () => S.set("askql.key", $("apikey").value.trim()));
+samplePromise.then(s => { if (!s) $("keyRow").hidden = false; });
+async function callApi(prompt, key, signal){
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", signal,
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01",
+                 "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 2000,
+        messages: [{ role: "user", content: prompt + "\nReply with the JSON object only, no other text." }] })
+    });
+  } catch (e) { if (e.name === "AbortError") throw { code: "cancelled" }; throw { code: "upstream_error" }; }
+  if (res.status === 401) throw { code: "bad_key" };
+  if (res.status === 429) throw { code: "rate_limited" };
+  if (!res.ok) throw { code: "upstream_error" };
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  const m = text.match(/\{[\s\S]*\}/);
+  try { return JSON.parse(m ? m[0] : text); } catch { throw { code: "invalid_json" }; }
+}
+ERR.bad_key = "That API key was rejected. Check it and try again.";
+function setStatus(t, err){ $("status").textContent = t; $("status").classList.toggle("err", !!err); }
+</script>
+</body>
+</html>
